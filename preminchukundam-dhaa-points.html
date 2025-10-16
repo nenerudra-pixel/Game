@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>🏆 Preminchukundam Dhaa Game Points Table</title>
+<style>
+  :root{--card:#fff;--bg:#f4f7fb;--primary:#0b63d6}
+  body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);margin:0;padding:18px;color:#111}
+  .wrap{max-width:1100px;margin:0 auto}
+  .card{background:var(--card);border-radius:10px;padding:18px;box-shadow:0 10px 30px rgba(10,20,40,.06)}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{margin:0;font-size:22px}
+  .meta{color:#556;font-size:14px}
+  .tableWrap{overflow:auto;margin-top:12px}
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th,td{padding:12px;border:1px solid #e6edf6;text-align:left;vertical-align:middle}
+  th{background:var(--primary);color:#fff}
+  tr:nth-child(even) td{background:#fbfdff}
+  .rankCol{width:70px;text-align:center}
+  .pointsCol{width:130px;text-align:center}
+  .center{text-align:center}
+  .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  button{background:var(--primary);color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:700}
+  button.ghost{background:#eef6ff;color:var(--primary);border:1px solid #d8eaff;font-weight:600}
+  button.warn{background:#e74c3c}
+  .smallinput{padding:8px;border-radius:6px;border:1px solid #dfe9f8;width:100%}
+  .smallnum{padding:8px;border-radius:6px;border:1px solid #dfe9f8;width:100px}
+  .note{color:#666;font-size:13px;margin-top:6px}
+  .inline-field{display:inline-block;margin-left:12px}
+  @media(max-width:720px){ .smallnum{width:80px} th,td{padding:8px} header{flex-direction:column;align-items:flex-start} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <div>
+          <h1>🏆 Preminchukundam Dhaa Game Points Table</h1>
+          <!-- Tip shown only in edit mode (hidden to viewers) -->
+          <div id="tipText" class="note" style="display:none">Tip: You are in edit mode. Change Host/Sponsor, names or points and click Save.</div>
+        </div>
+
+        <div style="text-align:right">
+          <div id="hostSponsorView" style="margin-bottom:6px">
+            <!-- Plain view (shown when NOT editing) -->
+            <span class="meta">Host: <strong id="hostNameDisplay">price</strong></span>
+            <span class="meta inline-field">Sponsored by: <strong id="sponsorDisplay">music adda</strong></span>
+          </div>
+
+          <!-- In-edit inputs (hidden when not editing) -->
+          <div id="hostSponsorEdit" style="display:none;margin-bottom:6px">
+            <label class="meta">Host: <input id="hostNameInput" class="smallinput" style="display:inline-block;width:140px;margin-left:8px" /></label>
+            <label class="meta inline-field">Sponsored by: <input id="sponsorInput" class="smallinput" style="display:inline-block;width:160px;margin-left:8px" /></label>
+          </div>
+
+          <div class="controls">
+            <button id="editBtn" type="button">Edit</button>
+            <button id="addRow" class="ghost" style="display:none">+ Add row</button>
+            <button id="saveBtn" class="ghost" style="display:none">Save</button>
+            <button id="cancelBtn" class="ghost" style="display:none">Cancel</button>
+            <button id="genLink" class="ghost" style="display:none">Generate shareable link</button>
+          </div>
+        </div>
+      </header>
+
+      <div id="viewArea" class="tableWrap" aria-live="polite"></div>
+
+      <div style="margin-top:10px;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div class="meta" id="lastUpdated">Last updated: —</div>
+        <!-- Footer notes shown only in edit mode -->
+        <div id="footerNotes" style="margin-left:12px;display:none">
+          <div class="note">Default password: <code>edit123</code>. Change inside the file if you want.</div>
+          <div class="note">Shareable link is a read-only snapshot.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* Edited and fixed: Host/Sponsor now persist correctly.
+   Usage:
+   - Click Edit -> enter password (edit123)
+   - Edit host/sponsor and table cells
+   - Click Save -> changes persist and remain in edit mode
+*/
+
+const EDIT_PASSWORD = 'edit123'
+const defaultData = {
+  host: 'price',
+  sponsor: 'music adda',
+  rows: [
+    {name:'Mani', points:50},
+    {name:'Raj', points:45},
+    {name:'New', points:0}
+  ],
+  updated: new Date().toISOString()
+}
+
+let data = JSON.parse(JSON.stringify(defaultData))
+let editing = false
+let staged = null
+
+function esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+function saveToLocal(){ try{ localStorage.setItem('preminchukundam.data', JSON.stringify(data)) }catch(e){} }
+function loadFromLocal(){
+  const saved = localStorage.getItem('preminchukundam.data')
+  if(saved){ try{ data = JSON.parse(saved); return } catch(e){} }
+  data = JSON.parse(JSON.stringify(defaultData))
+}
+
+function renderView(){
+  // host/sponsor display
+  document.getElementById('hostNameDisplay').textContent = data.host || ''
+  document.getElementById('sponsorDisplay').textContent = data.sponsor || '—'
+  document.getElementById('hostNameInput').value = data.host || ''
+  document.getElementById('sponsorInput').value = data.sponsor || ''
+
+  document.getElementById('lastUpdated').textContent = 'Last updated: ' + (data.updated ? new Date(data.updated).toLocaleString() : '—')
+
+  const wrap = document.getElementById('viewArea')
+  if(editing && staged){
+    // editable table with inputs
+    let html = '<table><thead><tr><th class="rankCol">Rank</th><th>Name</th><th class="pointsCol">Points</th><th class="center">Action</th></tr></thead><tbody>'
+    staged.rows.forEach((r,i)=>{
+      html += `<tr data-i="${i}">
+        <td class="rankCol center">${i+1}</td>
+        <td><input class="smallinput in-name" type="text" value="${esc(r.name)}"></td>
+        <td class="center"><input class="smallnum in-points" type="number" value="${esc(String(r.points||0))}"></td>
+        <td class="center"><button class="ghost delRow" data-i="${i}">Delete</button></td>
+      </tr>`
+    })
+    html += '</tbody></table>'
+    wrap.innerHTML = html
+
+    // wire inputs and delete buttons
+    wrap.querySelectorAll('.in-name').forEach((el,idx)=> el.addEventListener('input', e => staged.rows[idx].name = e.target.value))
+    wrap.querySelectorAll('.in-points').forEach((el,idx)=> el.addEventListener('input', e => staged.rows[idx].points = parseFloat(e.target.value) || 0))
+    wrap.querySelectorAll('.delRow').forEach(btn => btn.addEventListener('click', ()=>{
+      const idx = Number(btn.dataset.i)
+      if(!confirm('Delete row #' + (idx+1) + '?')) return
+      staged.rows.splice(idx,1)
+      renderView()
+    }))
+  } else {
+    // read-only table
+    const rows = (data.rows || []).slice().sort((a,b)=>(b.points||0)-(a.points||0))
+    let html = '<table><thead><tr><th class="rankCol">Rank</th><th>Name</th><th class="pointsCol">Points</th></tr></thead><tbody>'
+    if(rows.length === 0) html += '<tr><td colspan="3" style="text-align:center;color:#667;padding:14px">No data</td></tr>'
+    else rows.forEach((r,i)=> html += `<tr><td class="rankCol center">${i+1}</td><td>${esc(r.name)}</td><td class="pointsCol center">${esc(r.points)}</td></tr>`)
+    html += '</tbody></table>'
+    wrap.innerHTML = html
+  }
+
+  // toggle UI parts depending on editing state
+  document.getElementById('hostSponsorView').style.display = editing ? 'none' : 'block'
+  document.getElementById('hostSponsorEdit').style.display = editing ? 'block' : 'none'
+  document.getElementById('tipText').style.display = editing ? 'block' : 'none'
+  document.getElementById('footerNotes').style.display = editing ? 'block' : 'none'
+  document.getElementById('addRow').style.display = editing ? 'inline-block' : 'none'
+  document.getElementById('saveBtn').style.display = editing ? 'inline-block' : 'none'
+  document.getElementById('cancelBtn').style.display = editing ? 'inline-block' : 'none'
+  document.getElementById('genLink').style.display = editing ? 'inline-block' : 'none'
+}
+
+function enterEditMode(){
+  editing = true
+  staged = JSON.parse(JSON.stringify(data))
+  renderView()
+  setTimeout(()=> {
+    const first = document.querySelector('.in-name')
+    if(first) first.focus()
+  }, 80)
+}
+
+function exitEditModeDiscard(){
+  if(!confirm('Exit edit mode and discard unsaved changes?')) return
+  editing = false
+  staged = null
+  renderView()
+}
+
+function saveStaged(){
+  if(!staged) return
+  // IMPORTANT: take host & sponsor inputs first and put into staged
+  const hostVal = document.getElementById('hostNameInput').value.trim()
+  const sponsorVal = document.getElementById('sponsorInput').value.trim()
+  staged.host = hostVal
+  staged.sponsor = sponsorVal
+
+  // commit staged into data
+  data = JSON.parse(JSON.stringify(staged))
+  data.updated = new Date().toISOString()
+  // persist
+  saveToLocal()
+  // keep editing with committed copy
+  staged = JSON.parse(JSON.stringify(data))
+  renderView()
+  // silent save (no popups)
+}
+
+function addRow(){
+  if(!editing) return
+  staged.rows.push({name:'New', points:0})
+  renderView()
+  setTimeout(()=> {
+    const inputs = document.querySelectorAll('.in-name')
+    if(inputs.length) inputs[inputs.length-1].focus()
+  }, 60)
+}
+
+function generateLink(){
+  const snapshot = JSON.parse(JSON.stringify(data))
+  snapshot.updated = new Date().toISOString()
+  const enc = btoa(encodeURIComponent(JSON.stringify(snapshot)))
+  const base = (location.href.split('?')[0].split('#')[0])
+  const url = base + '?data=' + enc
+  try{ navigator.clipboard.writeText(url); alert('Link copied to clipboard') } catch(e){ prompt('Shareable link (read-only):', url) }
+}
+
+// wiring
+document.getElementById('editBtn').addEventListener('click', ()=>{
+  if(editing){
+    const first = document.querySelector('.in-name')
+    if(first) first.focus()
+    return
+  }
+  const pw = prompt('Enter edit password:')
+  if(pw === null) return
+  if(pw !== EDIT_PASSWORD){ alert('Incorrect password'); return }
+  enterEditMode()
+})
+document.getElementById('addRow').addEventListener('click', addRow)
+document.getElementById('saveBtn').addEventListener('click', saveStaged)
+document.getElementById('cancelBtn').addEventListener('click', exitEditModeDiscard)
+document.getElementById('genLink').addEventListener('click', generateLink)
+
+function loadFromLinkOrLocal(){
+  try{
+    const params = (new URL(location.href)).searchParams
+    const pdata = params.get('data')
+    if(pdata){
+      const parsed = JSON.parse(decodeURIComponent(atob(pdata)))
+      if(parsed && parsed.rows){ data = parsed; return }
+    }
+  }catch(e){}
+  loadFromLocal()
+}
+
+loadFromLinkOrLocal()
+renderView()
+</script>
+</body>
+</html>
